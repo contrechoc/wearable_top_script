@@ -1,0 +1,115 @@
+/* Contrechoc 2015
+For the wearable, fünfeck_top, front
+
+just show analog light value in three LED's
+*/
+
+
+
+
+#define F_CPU 8000000UL  
+#include <avr/io.h>
+#include <util/delay.h>
+
+unsigned short oldVal = 0;
+
+void adc_init()
+{
+
+	PORTB &= ~_BV(PB3);
+	DDRB &= ~_BV(PB3);
+
+	ADMUX = 0x0D;//B1101 = GND attiny45 page 139
+
+	ADCSRA |= _BV(ADEN) | _BV(ADPS1) | _BV(ADPS0) | _BV(ADSC);
+	/* wait for the ADC to return a sample */
+	loop_until_bit_is_clear(ADCSRA, ADSC);
+}
+
+unsigned short adc_read(unsigned char pin)
+{
+	unsigned char l, h, r;
+	r = (ADMUX & 0xf0) | (pin & 0x0f);
+	ADMUX = r; /* select the input channel */
+	ADCSRA |= _BV(ADSC);
+	loop_until_bit_is_clear(ADCSRA, ADSC);
+	/* must read the low ADC byte before the high ADC byte */
+	l = ADCL;
+	h = ADCH;
+	return ((unsigned short)h << 8) | l;
+}
+
+void blinkLED(char ledNr)
+{
+
+	PORTB &= ~_BV(PB0);
+	PORTB &= ~_BV(PB1);
+	PORTB &= ~_BV(PB4);
+
+	for(int i = 0; i < 10; i++)
+	{
+		PORTB |= _BV(ledNr);
+		_delay_ms(500/i);
+		PORTB &= ~_BV(ledNr);
+		_delay_ms(500/i);
+	}
+
+}
+
+
+void setup()
+{
+//three LED
+	DDRB |= (1 << PB0) | (1 << PB1) | (1 << PB4)  ;
+
+	adc_init();
+
+}
+
+void loop()
+{
+
+	blinkLED(PB0);
+	for(int i = 0; i < 10; i++)
+	{
+
+
+
+		PORTB &= ~_BV(PB0);
+		PORTB &= ~_BV(PB1);
+		PORTB &= ~_BV(PB4);
+
+		unsigned short value = adc_read(3);
+		if ( value > 512 )  PORTB |= _BV(PB0);
+		if ( value > 512 + 256 )  PORTB |= _BV(PB1);
+		if ( value > 512 + 256 + 125 )  PORTB |= _BV(PB4);
+		_delay_ms(250);
+	}
+
+	blinkLED(PB1);
+
+	for(int i = 0; i < 10; i++)
+	{
+		PORTB &= ~_BV(PB0);
+		PORTB &= ~_BV(PB1);
+		PORTB &= ~_BV(PB4);
+
+		unsigned short value = adc_read(3);
+		if ( abs(value - oldVal) > 10 )
+		{
+			PORTB |= _BV(PB0);
+			_delay_ms(150);
+			PORTB |= _BV(PB1);
+			_delay_ms(150);
+			PORTB |= _BV(PB4);
+			_delay_ms(150);
+		}
+
+		oldVal = value;
+		_delay_ms(150);
+	}
+
+}
+
+
+
